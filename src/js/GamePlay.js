@@ -95,7 +95,7 @@ export default class GamePlay {
    * Add listener to mouse enter for cell
    *
    * @param callback
-   */
+   */ 
   addCellEnterListener(callback) {
     this.cellEnterListeners.push(callback);
   }

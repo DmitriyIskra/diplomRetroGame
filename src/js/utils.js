@@ -56,7 +56,6 @@ export function calcTileType(index, boardSize) {
     return 'right'
   }
 
-
   return 'center'; 
 }
 
