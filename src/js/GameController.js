@@ -20,14 +20,33 @@ export default class GameController {
   init() {
     this.gamePlay.drawUi('prairie')
 
-    
+    this.placesForPlayer = this.generatePlaces('player', this.gamePlay.boardSize)
+
+    const ch = new Undead(1)
     const dfg  = new Bowman(2)
     const position = 10
-    const pc = new PositionedCharacter(character, position)
-    const tu = [pc]
+    const position2 = 8
+    const pc = new PositionedCharacter(dfg, position)
+    const pc2 = new PositionedCharacter(ch, position2)
+    const tu = [pc, pc2]
     this.gamePlay.redrawPositions(tu)
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
+  }
+
+  generatePlaces(team, boardSize) {
+    const acc = [];
+    if(team === 'player') {
+      for(let i = 0; i <= boardSize * (boardSize - 1); i += boardSize) {
+        acc.push(i);
+        acc.push(i + 1);
+      }
+      return acc;
+    }
+
+
+
+    return acc;
   }
 
   onCellClick(index) {
