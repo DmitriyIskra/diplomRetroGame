@@ -29,7 +29,7 @@ export function* characterGenerator(allowedTypes, maxLevel) {
 export function generateTeam(allowedTypes, maxLevel, characterCount) {
   const characters = [];
   
-  for(let i = 1; i < characterCount; i += 1) {
+  for(let i = 0; i < characterCount; i += 1) {
     const generator = characterGenerator(allowedTypes, maxLevel)
     characters.push(generator.next().value);
   }
