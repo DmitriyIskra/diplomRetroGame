@@ -14,7 +14,7 @@
  * left
  * center
  *
- * @example 
+ * @example
  * ```js
  * calcTileType(0, 8); // 'top-left'
  * calcTileType(1, 8); // 'top'
@@ -24,39 +24,39 @@
  * */
 export function calcTileType(index, boardSize) {
   // TODO: ваш код будет тут
-  if(index === 0) {
+  if (index === 0) {
     return 'top-left';
   }
 
-  if(index === boardSize - 1) {
+  if (index === boardSize - 1) {
     return 'top-right';
   }
 
-  if(index === (boardSize ** 2) - boardSize) {
+  if (index === (boardSize ** 2) - boardSize) {
     return 'bottom-left';
   }
 
-  if(index === (boardSize ** 2) - 1) {
+  if (index === (boardSize ** 2) - 1) {
     return 'bottom-right';
   }
 
-  if(index > 0 && index < boardSize - 1) {
+  if (index > 0 && index < boardSize - 1) {
     return 'top';
   }
 
-  if(index > (boardSize ** 2) - boardSize && index < (boardSize ** 2) - 1) {
-    return 'bottom'
+  if (index > (boardSize ** 2) - boardSize && index < (boardSize ** 2) - 1) {
+    return 'bottom';
   }
 
-  if(index > 0 && (index < (boardSize ** 2) - boardSize) && (index % boardSize === 0)) {
-    return 'left'
+  if (index > 0 && (index < (boardSize ** 2) - boardSize) && (index % boardSize === 0)) {
+    return 'left';
   }
 
-  if(index > boardSize - 1 && index < (boardSize ** 2) - boardSize && (index - (boardSize - 1)) % boardSize === 0) {
-    return 'right'
+  if (index > boardSize - 1 && index < (boardSize ** 2) - boardSize && (index - (boardSize - 1)) % boardSize === 0) {
+    return 'right';
   }
 
-  return 'center'; 
+  return 'center';
 }
 
 export function calcHealthLevel(health) {

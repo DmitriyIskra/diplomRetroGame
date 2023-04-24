@@ -5,4 +5,4 @@ const themes = {
   mountain: 'mountain',
 };
 
-export default themes; 
+export default themes;
