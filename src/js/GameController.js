@@ -6,6 +6,7 @@ import Swordsman from './characters/swordsman';
 import Undead from './characters/undead';
 import Vampire from './characters/vampire';
 import { generateTeam } from './generators';
+import GameState from './GameState'
 
 const playerClasses = [Bowman, Swordsman, Magician];
 const enemyClasses = [Daemon, Undead, Vampire];
@@ -39,29 +40,49 @@ export default class GameController {
     // Отрисовка
     this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
 
-    this.boardEnter();
+    this.boardMouseMoove();
+
+    // Какой игрок сейчас ходит
+    GameState.from({gamer: 'player'});
+    console.log(GameState.queue)
+
+    this.addListeners()
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
   }
 
-  boardEnter() {
+  boardMouseMoove() {
     this.arrCells = [this.gamePlay.boardEl.children]; // Собираем ячейки
 
-    for (let i = 0; i <= this.arrCells[0].length - 1; i += 1) { // Задаем ячейкам индексы в виде дата атрибутов
-      this.arrCells[0][i].setAttribute('data-index', `${i}`);
+    for (let i = 0; i <= this.gamePlay.cells.length - 1; i += 1) { // Задаем ячейкам индексы в виде дата атрибутов
+      this.gamePlay.cells[i].setAttribute('data-index', `${i}`);
     }
 
-    for (let i = 0; i <= this.arrCells[0].length - 1; i += 1) { // Навешиваем на ячейки слушатель событий и вызов метода при наведении
-      this.arrCells[0][i].addEventListener('mouseenter', (e) => {
+    for (let i = 0; i <= this.gamePlay.cells.length - 1; i += 1) { // Навешиваем на ячейки слушатель событий и вызов метода при наведении
+      this.gamePlay.cells[i].addEventListener('mouseenter', (e) => {
         this.onCellEnter(+e.target.dataset.index);
+      });
+
+      this.gamePlay.cells[i].addEventListener('mouseleave', (e) => { // Навешиваем на ячейки слушатель событий и вызов метода при уходе из ячейки
+        this.onCellLeave(+e.target.dataset.index);
+      });
+
+      this.gamePlay.cells[i].addEventListener('click', (e) => { 
+        this.onCellClick(+e.target.dataset.index);
       });
     }
 
-    // this.gamePlay.addCellEnterListener(this.onCellEnter)
+    
+    
+  }
+
+  addListeners() { // <- что это за метод и где это нужно сделать решите сами    
+        this.gamePlay.addCellClickListener(this.onCellClick) 
   }
 
   onCellClick(index) {
-
+    console.log('sdvsdvsdvvd')
+    // делаем логику и переделать остальные события
     // TODO: react to click
   }
 
@@ -76,6 +97,10 @@ export default class GameController {
   }
 
   onCellLeave(index) {
+    const character = this.arrayPositionedCharacter.find((el) => el.position === index);
+    if (character) {
+      this.gamePlay.hideCellTooltip(index);
+    }
     // TODO: react to mouse leave
   }
 
