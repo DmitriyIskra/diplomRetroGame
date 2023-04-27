@@ -6,7 +6,9 @@ import Swordsman from './characters/swordsman';
 import Undead from './characters/undead';
 import Vampire from './characters/vampire';
 import { generateTeam } from './generators';
-import GameState from './GameState'
+import GameState from './GameState';
+import GamePlay from './GamePlay';
+import cursors from './cursors';
 
 const playerClasses = [Bowman, Swordsman, Magician];
 const enemyClasses = [Daemon, Undead, Vampire];
@@ -15,6 +17,7 @@ export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
+    this.lastIndex = null;
   }
 
   init() {
@@ -36,52 +39,40 @@ export default class GameController {
 
     // Массив для отрисовки
     this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
-
+    
     // Отрисовка
     this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
 
-    this.boardMouseMoove();
-
     // Какой игрок сейчас ходит
     GameState.from({gamer: 'player'});
-    console.log(GameState.queue)
 
     this.addListeners()
+    
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
   }
 
-  boardMouseMoove() {
-    this.arrCells = [this.gamePlay.boardEl.children]; // Собираем ячейки
-
-    for (let i = 0; i <= this.gamePlay.cells.length - 1; i += 1) { // Задаем ячейкам индексы в виде дата атрибутов
-      this.gamePlay.cells[i].setAttribute('data-index', `${i}`);
-    }
-
-    for (let i = 0; i <= this.gamePlay.cells.length - 1; i += 1) { // Навешиваем на ячейки слушатель событий и вызов метода при наведении
-      this.gamePlay.cells[i].addEventListener('mouseenter', (e) => {
-        this.onCellEnter(+e.target.dataset.index);
-      });
-
-      this.gamePlay.cells[i].addEventListener('mouseleave', (e) => { // Навешиваем на ячейки слушатель событий и вызов метода при уходе из ячейки
-        this.onCellLeave(+e.target.dataset.index);
-      });
-
-      this.gamePlay.cells[i].addEventListener('click', (e) => { 
-        this.onCellClick(+e.target.dataset.index);
-      });
-    }
-
-    
-    
-  }
 
   addListeners() { // <- что это за метод и где это нужно сделать решите сами    
-        this.gamePlay.addCellClickListener(this.onCellClick) 
+        this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
+        this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this)); 
+        this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this))
   }
 
   onCellClick(index) {
-    console.log('sdvsdvsdvvd')
+    const character = this.arrayPositionedCharacter.find((el) => el.position === index);
+    
+    if(this.lastIndex) {
+      this.gamePlay.deselectCell(this.lastIndex)
+    }
+
+    if(this.validateCharacter(character.character)) {
+      this.gamePlay.selectCell(index);
+      this.lastIndex = index;
+      return;
+    }
+   
+    GamePlay.showError('Вы не можете управлять персонажем противника')
     // делаем логику и переделать остальные события
     // TODO: react to click
   }
@@ -89,19 +80,33 @@ export default class GameController {
   onCellEnter(index) {
     const character = this.arrayPositionedCharacter.find((el) => el.position === index);
 
-    if (character) {
+    if(this.gamePlay.cells[index].children.length > 0) {
       const message = this.generateMessageForTitle(character.character);
       this.gamePlay.showCellTooltip(message, index);
+
+      this.gamePlay.setCursor('pointer');
     }
+    
     // TODO: react to mouse enter
   }
-
+  
   onCellLeave(index) {
-    const character = this.arrayPositionedCharacter.find((el) => el.position === index);
-    if (character) {
+      this.gamePlay.setCursor('auto');
+
+    if(this.gamePlay.cells[index].children.length > 0) {
       this.gamePlay.hideCellTooltip(index);
     }
     // TODO: react to mouse leave
+  }
+
+  validateCharacter(character) {
+    if(GameState.queue.gamer === 'player') {
+      return playerClasses.some( item => new item().type === character.type);
+    }
+
+    if(GameState.queue.gamer === 'enemy') {
+      return enemyClasses.some( item => item.type === character.type);
+    }
   }
 
   genArrayPositionedCharacter(teamPlayer, teamEnemy, positionsForPlayer, positionsForEnemy) { // Создаем массив персонажей и позиций для this.gamePlay.redrawPositions(tu)

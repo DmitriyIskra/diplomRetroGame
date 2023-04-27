@@ -6,3 +6,4 @@ const cursors = {
 };
 
 export default cursors;
+ 
