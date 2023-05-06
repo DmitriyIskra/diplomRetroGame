@@ -8,6 +8,6 @@ export default class Daemon extends Character {
     this.step = 1;
     this.attack = 10;
     this.defence = 10;
-    this.type = 'daemon'; 
+    this.type = 'daemon';
   }
 }

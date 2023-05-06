@@ -9,163 +9,203 @@ import { generateTeam } from './generators';
 import GameState from './GameState';
 import GamePlay from './GamePlay';
 import cursors from './cursors';
-import calcTileType from './utils'
+import calcTileType from './utils';
 import ComputerLogic from './computerLogic';
-
 
 const playerClasses = [Bowman, Swordsman, Magician];
 const enemyClasses = [Daemon, Undead, Vampire];
 
-
+// оставляет лишнее выделение после ошибки о невозможности ходо
 
 export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
     this.computerLogic = null;
+    this.gameState = null;
     this.stateService = stateService;
+    this.counterLevel = 0;
     this.lastIndex = null;
+    this.placesForPlayer = null;
+    this.placesForEnemy = null;
     this.cellsForSteps = new Set();
     this.cellsForAttack = new Set();
+    this.activeCharacter = null;
+    this.targetCharacter = null;
   }
+  
 
   init() {
     this.gamePlay.drawUi('prairie');
-    this.computerLogic = new ComputerLogic(this.gamePlay)
-    // Доступные позиции для игроков на поле для статрта
-    this.placesForPlayer = this.generatePlaces('player', this.gamePlay.boardSize);
-    this.placesForEnemy = this.generatePlaces('enemy', this.gamePlay.boardSize);
 
-    // Количество игроков (рандом)
-    const randonAmountCharacters = Math.floor(Math.random() * this.placesForPlayer.length + 1); // рандомное число для формирования колличества персонажей
+    this.computerLogic = new ComputerLogic(this.gamePlay, this.toNull.bind(this), this.levelUp.bind(this));
 
-    // Команды игроков
-    this.teamPlayer = generateTeam(playerClasses, 1, randonAmountCharacters);
-    this.teamEnemy = generateTeam(enemyClasses, 1, randonAmountCharacters);
+    this.gameState = new GameState();
+    this.gameState.activeTheme = 'prairie';
 
-    // Уникальные позиции для расстановки
-    const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
-    const positionsForEnemy = this.placementPositionGenerator(this.placesForEnemy, randonAmountCharacters);
-
-    // Массив для отрисовки
-    this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
-
+    // Генерация персонажей и позиций для отрисовки
+    this.generateTeamsAndPositions();
+   
     // Отрисовка
     this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
 
-    // Какой игрок сейчас ходит
-    GameState.from({gamer: 'player'});
-
-    this.addListeners()
-    
+    // Добавление в логику компьютера персонажей и позиций
     this.computerLogic.init(this.arrayPositionedCharacter);
+
+    // Какой игрок сейчас ходит
+    GameState.from({ gamer: 'player' });
+
+    this.addListeners();
+
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
   }
 
-
-  addListeners() { // <- что это за метод и где это нужно сделать решите сами    
-        this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
-        this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this)); 
-        this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this))
+  addListeners() { // <- что это за метод и где это нужно сделать решите сами
+    this.gamePlay.addNewGameListener(this.newGame.bind(this));
+    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
+    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
+    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+    this.gamePlay.addSaveGameListener(this.saveGame.bind(this));
+    this.gamePlay.addLoadGameListener(this.loadGame.bind(this));
   }
 
   onCellClick(index) {
-    // Объект выбранного персонажа
-    const character = this.arrayPositionedCharacter.find((el) => el.position === index);
-
-    // При старте игры когда пероснаж не выбран при клике на пустую ячейку ничего не должно происходить, не должно выдавать ошибок
-    if(!this.lastIndex && this.gamePlay.cells[index].children.length === 0) {
-      return;
+    // Объект выбранного персонажа (для старта игры когда персонаж еще не выбран)
+    if(this.gamePlay.cells[index].children.length > 0) {
+      let temporary = this.arrayPositionedCharacter.find((el) => el.position === index);
+      if(this.validateCharacter(temporary.character)) {
+        this.activeCharacter = temporary;
+      }  
     }
+    
+    // Если в ячейке враг мы его отбираем, и будем также использовать для валидации
+    if(this.gamePlay.cells[index].children.length > 0) { 
+      let temporaryForEnemy = this.arrayPositionedCharacter.find((el) => el.position === index);
+      if(temporaryForEnemy.character.gamer === 'enemy') {
+        this.targetCharacter = temporaryForEnemy;
+      } else {
+        this.targetCharacter = null;
+      } 
+    }
+    
+    // При старте игры когда пероснаж не выбран при клике на пустую ячейку ничего не должно происходить, не должно выдавать ошибок
+    if (!this.targetCharacter && !this.activeCharacter && this.gamePlay.cells[index].children.length === 0) {
+      return;
+    } else if (this.targetCharacter && !this.activeCharacter && this.gamePlay.cells[index].children.length > 0) {
+      GamePlay.showError('Вы не можете управлять персонажем противника');
+    }
+    
+    
+    // Перемещение персонажа  
+    if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForSteps].includes(index) && this.gamePlay.cells[index].children.length === 0) {
+      
+      this.gamePlay.deselectCell(this.lastIndex); /// ??????????????????? не срабатывает потому что следующая ячейка не пустая
+      this.gamePlay.selectCell(index);            // после хода выделение исчезает
 
-    // Перемещение персонажа
-    if(this.lastIndex && [...this.cellsForSteps].includes(index) && this.gamePlay.cells[index].children.length === 0) {
-      let character = this.arrayPositionedCharacter.find((el) => el.position === this.lastIndex); // отбор выбранного персонажа
-      character.position = index; // изменение позиции выбранного персонажа в объекте
+      this.activeCharacter.position = index; // изменение позиции выбранного персонажа в объекте
       this.gamePlay.redrawPositions(this.arrayPositionedCharacter); // перерисовка поля
 
-      this.gamePlay.deselectCell(this.lastIndex); /// ???????????????????
-      this.gamePlay.deselectCell(index);
+      this.cellsForSteps.clear();
+      this.cellsForAttack.clear();
+      this.generateArrayForSteps(index, this.activeCharacter.character.step, this.gamePlay.boardSize); // пересобираем ячейки досступные для хода, после хода
+      this.generateArrayForAttack(index, this.activeCharacter.character.stepAttack, this.gamePlay.boardSize); // пересобираем ячейки досступные для атаки после хода
+      
+      GameState.from({ gamer: 'enemy' });
+      
+      this.computerLogic.stepCharacter();
 
-      this.generateArrayForSteps(index, character.character.step, this.gamePlay.boardSize); // пересобираем ячейки досступные для хода, после хода
-      this.generateArrayForAttack(index, character.character.stepAttack, this.gamePlay.boardSize); // пересобираем ячейки досступные для атаки после хода
-
-      this.computerLogic.stepCharacter(this.gamePlay.boardSize, this.gamePlay.cells, this.arrayPositionedCharacter);
-      character = null
-      this.cellsForSteps.clear()
-      this.cellsForAttack.clear()
-      this.lastIndex = null;
-      return;
-    }
-
-    // Ошибка если произошел клик по ячейке которая находится вне зоны досягаемости
-    if(this.lastIndex // Персонаж выбран
+      this.levelUp();
+    } else if((this.lastIndex || this.lastIndex === 0) // Персонаж выбран
     && this.gamePlay.cells[index].children.length === 0 // ячейка не содержит персонаж
-    && ![...this.cellsForSteps].includes(index)) { // ячейка за пределами зоны куда может шагать персонаж
+    && ![...this.cellsForSteps].includes(index)) {
       GamePlay.showError('Вы не можете идти сюда, это слишком далеко для одного хода');
-      this.gamePlay.selectCell(this.lastIndex);
-      return;
     }
 
-    // Выделение выбранного персонажа цветом 
-    if(this.validateCharacter(character.character)) {
+
+    // Атака на противника
+    // Если персонаж выбран и ячейка по которой был клик есть в списке для атаки и персонаж в ней враг
+    if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForAttack].includes(index) && this.targetCharacter) {
+      let damage = Math.max(this.activeCharacter.character.attack - this.targetCharacter.character.defence, this.activeCharacter.character.attack * 0.1); // выщитываем урон
+      (async () => {
+        await this.gamePlay.showDamage(index, damage); // функция для визуализации урона
+
+        this.targetCharacter.character.health -= damage; // вычитаем из жизни атакуемого епрсонажа урон
+        if(this.targetCharacter.character.health > 0) { // если жизни еще остались
+              this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+              GameState.from({ gamer: 'enemy' });
+              this.computerLogic.stepCharacter();
+        } else if(this.targetCharacter.character.health <= 0) { // если жизни закончились
+          let indexCharacter = this.arrayPositionedCharacter.findIndex( item => item.position === this.targetCharacter.position);
+          this.arrayPositionedCharacter.splice(indexCharacter, 1);
+          this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+          GameState.from({ gamer: 'enemy' });
+
+          this.computerLogic.stepCharacter(); 
+          this.levelUp()
+        }
+      })()
+    }
+
+    // Выделение выбранного персонажа цветом, если персонаж еще не выбран 
+    if((this.lastIndex || this.lastIndex === 0) && !this.targetCharacter) { // Персонаж уже был выбран и в ячейке по которой произошел клик нет врага
+      this.gamePlay.deselectCell(this.lastIndex)
       this.gamePlay.selectCell(index);
       this.lastIndex = index;
 
-      this.generateArrayForSteps(index, character.character.step, this.gamePlay.boardSize); // Собираем ячейки досступные для хода
-      this.generateArrayForAttack(index, character.character.stepAttack, this.gamePlay.boardSize); // Собираем ячейки досступные для атаки
-    } else if(!this.lastIndex) { // ошибка если персонаж не был выбран, а пользователь кликнул по персонажу компьютера
-      GamePlay.showError('Вы не можете управлять персонажем противника');
+      this.generateArrayForSteps(index, this.activeCharacter.character.step, this.gamePlay.boardSize); // Собираем ячейки досступные для хода если выбирается другой персонаж
+      this.generateArrayForAttack(index, this.activeCharacter.character.stepAttack, this.gamePlay.boardSize); // Собираем ячейки досступные для атаки если выбирается другой персонаж
+    } else if (!this.lastIndex && !this.targetCharacter){ 
+      this.gamePlay.selectCell(index);
+      this.lastIndex = index;
+
+      this.generateArrayForSteps(index, this.activeCharacter.character.step, this.gamePlay.boardSize); // Собираем ячейки досступные для хода
+      this.generateArrayForAttack(index, this.activeCharacter.character.stepAttack, this.gamePlay.boardSize); // Собираем ячейки досступные для атаки
     }
+
 
     // Ошибка если произошел клик по врагу который находится вне зоны досягаемости и персонаж выбран
-    if(this.lastIndex && ![...this.cellsForAttack].includes(index) && character.character.gamer === 'enemy') {
+    if (this.activeCharacter && this.targetCharacter && ![...this.cellsForAttack].includes(index)) {
       GamePlay.showError('Враг слишком далеко');
-      this.gamePlay.selectCell(this.lastIndex);
+      this.targetCharacter = null;
     }
 
-    
     // TODO: react to click
   }
 
-  onCellEnter(index) {
+  onCellEnter(index) { 
     // Объект персонажа находящегося в ячейке на которую наведен курсор (если он там есть)
     const character = this.arrayPositionedCharacter.find((el) => el.position === index);
-
+    
     // Вывод сообщения о персонаже
-    if(this.gamePlay.cells[index].children.length > 0) { 
+    if (this.gamePlay.cells[index].children.length > 0) {
       const message = this.generateMessageForTitle(character.character);
       this.gamePlay.showCellTooltip(message, index);
-
+      
       this.gamePlay.setCursor('pointer');
     }
 
-
-
     // Курсор недопустимое действие при наведении на клетку куда нельзя шагать (ячейка не входит в допустимые)
-    if(![...this.cellsForSteps].includes(index) // ячейка не входит в допустимые
+    if (![...this.cellsForSteps].includes(index) // ячейка не входит в допустимые
     && this.gamePlay.cells[index].children.length === 0 // ячейка пустая
-    && this.lastIndex) { // персонаж выбран
+    && (this.lastIndex || this.lastIndex === 0)) { // персонаж выбран
       this.gamePlay.setCursor('not-allowed');
     }// Подсвечивание ячеек и изменение курсора доступных для выбора
-    else if([...this.cellsForSteps].includes(index) && this.gamePlay.cells[index].children.length === 0) {
+    else if ([...this.cellsForSteps].includes(index) && this.gamePlay.cells[index].children.length === 0 && (this.lastIndex || this.lastIndex === 0)) {
       this.gamePlay.selectCell(index, 'green');
       this.gamePlay.setCursor('pointer');
       this.lastIndexEnter = index;
     }
 
-    
-
     // Смена курсора на недопустимое действие при наведении на противника за пределами досягаемости
-    if(this.lastIndex // Персонаж выбран
+    if ((this.lastIndex || this.lastIndex === 0) // Персонаж выбран
     && ![...this.cellsForAttack].includes(index) // Враг за пределами допустимых ячеек
     && this.lastIndex !== index // Это не наш выбранный персонаж
     && this.gamePlay.cells[index].children.length > 0 // В ячейке есть враг
-    &&character.character.gamer !== 'player') { // В ячейке персонаж врага
+    && character.character.gamer !== 'player') { // В ячейке персонаж врага
       this.gamePlay.setCursor('not-allowed');
     }// Подсвечивание ячеек и изменение курсора доступных для атаки
-    else if([...this.cellsForAttack].includes(index) 
-    && this.gamePlay.cells[index].children.length > 0 
+    else if ([...this.cellsForAttack].includes(index)
+    && this.gamePlay.cells[index].children.length > 0
     && character.character.gamer !== 'player') {
       this.gamePlay.selectCell(index, 'red');
       this.gamePlay.setCursor('crosshair');
@@ -173,64 +213,212 @@ export default class GameController {
     }
     // TODO: react to mouse enter
   }
-  
-  onCellLeave(index) {
-    let character = this.arrayPositionedCharacter.find((el) => el.position === index); // персонаж который находится в покинутой ячейке
 
+  onCellLeave(index) {
+    const character = this.arrayPositionedCharacter.find((el) => el.position === index); // персонаж который находится в покинутой ячейке
+    
     this.gamePlay.setCursor('auto');
 
-    if(this.gamePlay.cells[index].children.length > 0) {
+    if (this.gamePlay.cells[index].children.length > 0) {
       this.gamePlay.hideCellTooltip(index);
     }
 
-    if((this.lastIndexEnter || this.lastIndexEnter === 0) // прошлая ячейка на которой был курсор содержит значение или 0
-    && this.gamePlay.cells[index].children.length === 0 ) { // ячейка не содержит персонаж
-      this.gamePlay.deselectCell(this.lastIndexEnter);
+    if ((this.lastIndexEnter || this.lastIndexEnter === 0) // прошлая ячейка на которой был курсор содержит значение или 0
+    && this.gamePlay.cells[index].children.length === 0) { // ячейка не содержит персонаж
+      this.gamePlay.deselectCell(index);
     }
 
-    if(character && character.character.gamer === 'enemy') {
-      this.gamePlay.deselectCell(this.lastIndexEnter);
+    if (character && character.character.gamer === 'enemy') {
+      this.gamePlay.deselectCell(index);
     }
     // TODO: react to mouse leave
+  }
+
+  newGame() {
+
+    this.toNull()
+
+    this.gamePlay.drawUi('prairie');
+
+    this.generateTeamsAndPositions();
+
+    // Отрисовка
+    this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+
+    // Добавление в логику компьютера персонажей и позиций
+    this.computerLogic.init(this.arrayPositionedCharacter);
+
+    // Какой игрок сейчас ходит
+    GameState.from({ gamer: 'player' });
+  }
+  
+  levelUp() {
+    const charactersPlayer = this.arrayPositionedCharacter.filter( item => item.character.gamer === 'player');
+    const charactersEnemy = this.arrayPositionedCharacter.filter( item => item.character.gamer === 'enemy');
+    const themes = ['prairie', 'desert', 'arctic', 'mountain'];
+ 
+    // Меняем параметры
+    if(charactersEnemy.length === 0 && charactersPlayer.length > 0) {
+      console.log('player win')
+      
+      this.gameState.playerBalls += 1;
+
+      this.toNull(); //Обнуляем игрока player
+
+      this.counterLevel += 1; // повышаем уровень игры
+     
+      // Количество игроков (рандом)
+        // рандомное число для формирования колличества персонажей для каждой команды (не общее)
+        // !!!!!!!!!!!!!!!!!! МИНИМАЛЬНОЕ КОЛИЧЕСТВО ДОЛЖНО БЫТЬ РАВНО ОСТАТКУ ПЕРСОНАЖЕЙ
+        // const randonAmountCharacters = Math.floor(Math.random() * ( this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length); 
+      const randonAmountCharacters = 2;
+      const addCharacters = randonAmountCharacters - charactersPlayer.length;
+      
+        // Команды игроков
+      this.teamPlayer = null;  
+      charactersPlayer.push({classes: playerClasses}) // добавляем массив классов
+      if(addCharacters > 0) { // Если нужно добавить персонажей, формируем их
+        this.teamPlayer = generateTeam(playerClasses, this.counterLevel, addCharacters); // персонажи новые поэтому 1й уровень
+        const result = generateTeam(charactersPlayer, this.counterLevel, charactersPlayer.length - 1); // Формируем персонажи те чтовыжили
+
+        result.characters.forEach( item => this.teamPlayer.characters.push(item)) // Пушим в teamPlayer
+        // this.teamPlayer.characters.push()
+      } else {
+        this.teamPlayer = generateTeam(charactersPlayer, this.counterLevel, charactersPlayer.length - 1); // Формируем персонажи те чтовыжили
+      }      
+
+      this.teamEnemy = null;
+      this.teamEnemy = generateTeam(enemyClasses, this.counterLevel + 1, randonAmountCharacters); // как в рандом, так и формируем
+
+        // Уникальные позиции для расстановки
+      const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
+      const positionsForEnemy = this.placementPositionGenerator(this.placesForEnemy, randonAmountCharacters);
+
+        // Массив для отрисовки
+      this.arrayPositionedCharacter = null;
+      this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
+
+      // Обнуляем параметры логики компьютера
+      this.computerLogic.cellsForSteps.clear();
+      this.computerLogic.cellsForAttack.clear()
+      this.attackedСharacter = null;
+
+      // Передаем новый набор персонажей с новыми стартовыми позициями
+      this.computerLogic.init(this.arrayPositionedCharacter);
+
+      // от уровня игры меняем поле
+      this.gamePlay.drawUi(themes[this.counterLevel]);
+      this.gameState.activeTheme = themes[this.counterLevel];
+        // Отрисовка
+      this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+
+        // Какой игрок сейчас ходит
+      GameState.from({ gamer: 'player' });
+  
+    } else if(charactersEnemy.length > 0 && charactersPlayer.length === 0) {
+      console.log('enemy win')
+
+      this.gameState.enemyBalls += 1;
+
+      this.counterLevel += 1; // повышаем уровень игры
+
+      
+
+        // Количество игроков (рандом)
+        // рандомное число для формирования колличества персонажей для каждой команды (не общее)
+        // !!!!!!!!!!!!!!!!!! МИНИМАЛЬНОЕ КОЛИЧЕСТВО ДОЛЖНО БЫТЬ РАВНО ОСТАТКУ ПЕРСОНАЖЕЙ
+        // const randonAmountCharacters = Math.floor(Math.random() * ( this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length); 
+      const randonAmountCharacters = 2;
+      const addCharacters = randonAmountCharacters - charactersEnemy.length; // сколько персонажей добавить к выжившим
+      
+          // Команды игроков  
+      this.teamEnemy = null;
+      charactersEnemy.push({classes: enemyClasses}) // добавляем массив классов
+      if(addCharacters > 0) { // Если нужно добавить персонажей, формируем их
+        this.teamEnemy = generateTeam(enemyClasses, this.counterLevel, addCharacters); // персонажи новые поэтому 1й уровень
+        const result = generateTeam(charactersEnemy, this.counterLevel, charactersEnemy.length - 1); // Формируем персонажи те чтовыжили
+
+        result.characters.forEach( item => this.teamEnemy.characters.push(item)) // Пушим в teamPlayer
+      } else {
+        this.teamEnemy = generateTeam(charactersEnemy, this.counterLevel, charactersEnemy.length - 1); // Формируем персонажи те чтовыжили
+      }      
+
+      this.teamPlayer = null;
+      this.teamPlayer = generateTeam(playerClasses, this.counterLevel + 1, randonAmountCharacters); // как в рандом, так и формируем
+
+        // Уникальные позиции для расстановки
+      const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
+      const positionsForEnemy = this.placementPositionGenerator(this.placesForEnemy, randonAmountCharacters);
+
+        // Массив для отрисовки
+      this.arrayPositionedCharacter = null;
+      this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
+
+      // Обнуляем параметры логики компьютера
+      this.computerLogic.cellsForSteps.clear();
+      this.computerLogic.cellsForAttack.clear()
+      this.attackedСharacter = null;
+
+      // Передаем новый набор персонажей с новыми стартовыми позициями
+      this.computerLogic.init(this.arrayPositionedCharacter);
+
+      // от уровня игры меняем поле
+      this.gamePlay.drawUi(themes[this.counterLevel]); 
+      this.gameState.activeTheme = themes[this.counterLevel];
+        // Отрисовка
+      this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+
+        // Какой игрок сейчас ходит
+      GameState.from({ gamer: 'player' });
+    }
+    
+  }
+
+  toNull() { // Обнуляет все параметры при сметри персонажа player
+    this.lastIndex = null;
+    this.cellsForSteps.clear()
+    this.cellsForAttack.clear()
+    this.activeCharacter = null;
+    this.targetCharacter = null;
   }
 
   generateArrayForSteps(indexCell, steps, borderSize) {
     this.cellsForSteps.clear();
 
-    for(let i = 1; i <= steps; i += 1) {
+    for (let i = 1; i <= steps; i += 1) {
       let result = indexCell + borderSize * i;
-      if(result < 8 ** 2) {   
+      if (result < 8 ** 2) {
         this.cellsForSteps.add(result); // ячейки вниз
-        
-        if(result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
+
+        if (result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
           this.cellsForSteps.add(result + i); // диагональ вниз и вправо
         }
 
-        if(result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
+        if (result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
           this.cellsForSteps.add(result - i); // диагональ вниз и влево
         }
       }
-      
+
       result = indexCell - borderSize * i;
-      if(result >= 0) {     
+      if (result >= 0) {
         this.cellsForSteps.add(result); // ячейки вверх
 
-        if(result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
+        if (result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
           this.cellsForSteps.add(result + i); // диагональ вниз и вправо
         }
 
-        if(result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
+        if (result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
           this.cellsForSteps.add(result - i); // диагональ вниз и влево
         }
       }
 
       result = indexCell + i;
-      if(result <= this.calcFiniteIndexSIde(indexCell, borderSize)[1]) {   
+      if (result <= this.calcFiniteIndexSIde(indexCell, borderSize)[1]) {
         this.cellsForSteps.add(result); // ячейки вправо
       }
 
       result = indexCell - i;
-      if (result >= this.calcFiniteIndexSIde(indexCell, borderSize)[0]) {   
+      if (result >= this.calcFiniteIndexSIde(indexCell, borderSize)[0]) {
         this.cellsForSteps.add(result); // ячейки влево
       }
     }
@@ -239,40 +427,40 @@ export default class GameController {
   generateArrayForAttack(indexCell, steps, borderSize) {
     this.cellsForAttack.clear();
 
-    for(let i = 1; i <= steps; i += 1) {
+    for (let i = 1; i <= steps; i += 1) {
       let result = indexCell + borderSize * i;
-      if(result < 8 ** 2) {   
+      if (result < 8 ** 2) {
         this.cellsForAttack.add(result); // ячейки вниз
-        
-        if(result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
+
+        if (result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
           this.cellsForAttack.add(result + i); // диагональ вниз и вправо
         }
 
-        if(result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
+        if (result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
           this.cellsForAttack.add(result - i); // диагональ вниз и влево
         }
       }
-      
+
       result = indexCell - borderSize * i;
-      if(result >= 0) {     
+      if (result >= 0) {
         this.cellsForAttack.add(result); // ячейки вверх
 
-        if(result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
+        if (result + i <= this.calcFiniteIndexSIde(result, borderSize)[1]) {
           this.cellsForAttack.add(result + i); // диагональ вниз и вправо
         }
 
-        if(result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
+        if (result - i >= this.calcFiniteIndexSIde(result, borderSize)[0]) {
           this.cellsForAttack.add(result - i); // диагональ вниз и влево
         }
       }
 
       result = indexCell + i;
-      if(result <= this.calcFiniteIndexSIde(indexCell, borderSize)[1]) {   
+      if (result <= this.calcFiniteIndexSIde(indexCell, borderSize)[1]) {
         this.cellsForAttack.add(result); // ячейки вправо
       }
 
       result = indexCell - i;
-      if (result >= this.calcFiniteIndexSIde(indexCell, borderSize)[0]) {   
+      if (result >= this.calcFiniteIndexSIde(indexCell, borderSize)[0]) {
         this.cellsForAttack.add(result); // ячейки влево
       }
     }
@@ -283,22 +471,22 @@ export default class GameController {
     let left = index; // самая левая ячейка в ряду
     let right = index; // самая правая ячейка в ряду
 
-    for(let i = 0; i < boardSize; i += 1) {  
-      if(left % boardSize !== 0) {
+    for (let i = 0; i < boardSize; i += 1) {
+      if (left % boardSize !== 0) {
         left -= 1;
       }
 
-      if((right - (boardSize - 1)) % boardSize !== 0) {
+      if ((right - (boardSize - 1)) % boardSize !== 0) {
         right += 1;
       }
     }
 
-    return [left, right]
+    return [left, right];
   }
 
   validateCharacter(character) { // Проверяем своего ли персонажа выбрал игрок
-    if(GameState.queue.gamer === 'player') {
-      return playerClasses.some( item => new item().type === character.type);
+    if (GameState.queue.gamer === 'player') { // игрок может выбрать персонажа только если сейчас его ход
+      return playerClasses.some((item) => new item().type === character.type);
     }
 
     // if(GameState.queue.gamer === 'enemy') {
@@ -355,142 +543,56 @@ export default class GameController {
 
     return message;
   }
+
+  generateTeamsAndPositions() {
+    // Доступные позиции для игроков на поле для статрта
+    this.placesForPlayer = this.generatePlaces('player', this.gamePlay.boardSize);
+    this.placesForEnemy = this.generatePlaces('enemy', this.gamePlay.boardSize);
+
+    // Количество игроков (рандом)
+    // рандомное число для формирования колличества персонажей для каждой команды (не общее)
+    // const randonAmountCharacters = Math.floor(Math.random() * this.placesForPlayer.length + 1); 
+    const randonAmountCharacters = 2;
+    // Команды игроков
+    this.teamPlayer = generateTeam(playerClasses, 1, randonAmountCharacters);
+    this.teamEnemy = generateTeam(enemyClasses, 1, randonAmountCharacters);
+
+    // Уникальные позиции для расстановки
+    const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
+    const positionsForEnemy = this.placementPositionGenerator(this.placesForEnemy, randonAmountCharacters);
+
+    // Массив для отрисовки
+    this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
+  }
+
+  saveGame() {
+    this.gameState.charactersAndPositions = this.arrayPositionedCharacter;
+    this.gameState.level = this.counterLevel;
+    this.stateService.save(this.gameState);
+  }
+
+  loadGame() {
+    const result = this.stateService.load();
+
+    this.arrayPositionedCharacter = result.charactersAndPositions;
+    this.counterLevel = result.level;
+    this.gamePlay.playerBalls = result.playerBalls;
+    this.gamePlay.enemyBalls = result.enemyBalls;
+
+    this.gamePlay.drawUi(result.activeTheme);
+    this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+
+    // Доделать остальное в том числе и комп (додобавить везде необхъодимые данные)
+    // Добавление в логику компьютера персонажей и позиций
+    this.computerLogic.init(this.arrayPositionedCharacter);
+
+    // Какой игрок сейчас ходит
+    GameState.from({ gamer: 'player' });
+  }
 }
 
 
-  // В enter
-  // if(this.lastCharacter && this.gamePlay.cells[index].children.length === 0) {
-    //   let resultValidate = this.validateCell(this.lastIndex, this.lastCharacter.step, this.gamePlay.boardSize, index);
-    //   console.log(this.lastIndex)
-    //   console.log(this.lastCharacter.step)
-    //   console.log(this.gamePlay.boardSize)
-    //   console.log(index)
-    //   if(resultValidate) {
-    //     this.gamePlay.selectCell(index, 'green');
-    //     this.lastIndexEnter = index;
-    //     this.gamePlay.setCursor('pointer');
-    //   }
-    // }  
-
-// validateCell(cell, possibleStep, sizeBoard, cellOver) {
-
-//   let itemTR = cellOver;
-//   let itemTL = cellOver;
-//   let itemBL = cellOver;
-//   let itemBR = cellOver;
-//   let itemT = cellOver;
-//   let itemL = cellOver;
-//   let itemR = cellOver;
-//   let itemB = cellOver;
-
-//   let result = null;
-
-//   for( let i = 1; i <= possibleStep; i += 1) {
-//     itemTR = itemTR + sizeBoard - 1; // Проверка диагонали вверх вправо
-//     if(itemTR === cell) {
-//       console.log('itemTR')
-//       result = true;
-//     }
-
-//     itemTL = itemTL + sizeBoard + 1;
-//     if(itemTL === cell) {
-//       console.log('itemTL')
-//       result = true;
-//     }
-
-//     itemBL = itemBL - sizeBoard + 1;
-//     if(itemBL === cell) {
-//       console.log('itemBL')
-//       result = true;
-//     }
-
-//     itemBR = itemBR - sizeBoard - 1;
-//     if(itemBR === cell) {
-//       console.log('itemBR')
-//       result = true;
-//     }
-
-//     itemT += sizeBoard;
-//     if(itemT === cell) {
-//       console.log('itemT')
-//       result = true;
-//     }
-
-//     itemB -= sizeBoard;
-//     if(itemB === cell) {
-//       console.log('itemB')
-//       result = true;
-//     }
-
-//     itemL += 1; // находим каждый раз левый и правый край для каждого конкретного случая и добавляем эти праметры в условия
-//     if(itemL === cell) {
-//       console.log('itemL')
-//       result = true;
-//     }
-
-//     itemR -= 1;
-//     if(itemR === cell) {
-//       console.log('itemR')
-//       result = true;
-//     }
-//   }
-
-//   return result;
-// }
 
 
 
-
-// let possibleCellsForMove = new Set();
-//     let board;
-//       for(let i = 1; i <= possibleStep; i += 1){
-//         board = sizeBoard * i;
-
-//         for(let i = 0; i <= possibleStep; i += 1) {
-//           let result = cell - i;
-//           if(result >= 0 && result !== cell) {
-//             possibleCellsForMove.add(result);
-//           }
-
-//           result = cell - board - i;
-//           if(result >= 0 && result !== cell) {
-//             possibleCellsForMove.add(result);
-//           }
-
-//           result = cell - board + i;
-//           if(result >= 0 && result !== cell) {
-//             possibleCellsForMove.add(result);
-//           }
-
-
-//           result = cell + i;
-//           if(result >= 0 && result !== cell) {
-//             possibleCellsForMove.add(result);
-//           }
-
-//           result = cell + board - i;
-//           if(result >= 0 && result !== cell) {
-//             possibleCellsForMove.add(result);
-//           }
-
-//           result = cell + board + i;
-//           if(result >= 0 && result !== cell) {
-//             possibleCellsForMove.add(result);
-//           }
-
-
-//         }
-//       }
-
-// Array.from(possibleCellsForMove)
-
-
-// Ходим
-// Мечники/Скелеты - 4 клетки в любом направлении
-// !Лучники/Вампиры - 2 клетки в любом направлении
-// !Маги/Демоны - 1 клетка в любом направлении
-
-// Атакуем
-// Мечники/Скелеты - могут атаковать только соседнюю клетку
-// !Лучники/Вампиры - на ближайшие 2 клетки
-// !Маги/Демоны - на ближайшие 4 клетки
+// debugger;
