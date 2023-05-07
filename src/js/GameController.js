@@ -31,6 +31,7 @@ export default class GameController {
     this.cellsForAttack = new Set();
     this.activeCharacter = null;
     this.targetCharacter = null;
+    this.gameStop = false;
   }
   
 
@@ -70,6 +71,13 @@ export default class GameController {
   }
 
   onCellClick(index) {
+    // Блокировка поля
+    if(this.gameStop) {
+      this.gamePlay.setCursor('auto');
+      this.gamePlay.deselectCell(index);
+      return;
+    }
+
     // Объект выбранного персонажа (для старта игры когда персонаж еще не выбран)
     if(this.gamePlay.cells[index].children.length > 0) {
       let temporary = this.arrayPositionedCharacter.find((el) => el.position === index);
@@ -102,7 +110,7 @@ export default class GameController {
      && this.gamePlay.cells[index].children.length === 0 
      && GameState.queue.gamer === 'player') {
       
-      this.gamePlay.deselectCell(this.lastIndex); /// ??????????????????? не срабатывает потому что следующая ячейка не пустая
+      this.gamePlay.deselectCell(this.lastIndex); 
       this.gamePlay.selectCell(index);            // после хода выделение исчезает
 
       this.activeCharacter.position = index; // изменение позиции выбранного персонажа в объекте
@@ -118,7 +126,7 @@ export default class GameController {
       this.computerLogic.stepCharacter();
 
       this.levelUp();
-      
+
     } else if((this.lastIndex || this.lastIndex === 0) // Персонаж выбран
     && this.gamePlay.cells[index].children.length === 0 // ячейка не содержит персонаж
     && ![...this.cellsForSteps].includes(index)) {
@@ -146,7 +154,7 @@ export default class GameController {
 
           // Находим индекс персонажа в массиве персонажей компьютера
           let indexCharacterComp = this.computerLogic.arrayCharacters.findIndex( item => item.position === this.targetCharacter.position ); 
-          console.log(indexCharacterComp)
+
           if(indexCharacterComp || indexCharacterComp === 0) {
             this.computerLogic.arrayCharacters.splice(indexCharacterComp, 1);
           }
@@ -193,6 +201,16 @@ export default class GameController {
   onCellEnter(index) { 
     // Объект персонажа находящегося в ячейке на которую наведен курсор (если он там есть)
     const character = this.arrayPositionedCharacter.find((el) => el.position === index);
+
+    // Блокировка поля
+    if(this.gameStop) {
+      this.gamePlay.setCursor('auto');
+      this.gamePlay.deselectCell(index);
+
+      return;
+    }
+
+  
     
     // Вывод сообщения о персонаже
     if (this.gamePlay.cells[index].children.length > 0) {
@@ -233,6 +251,13 @@ export default class GameController {
   }
 
   onCellLeave(index) {
+    // Блокировка поля
+    if(this.gameStop) {
+      this.gamePlay.setCursor('auto');
+      this.gamePlay.deselectCell(index);
+      return;
+    }
+
     const character = this.arrayPositionedCharacter.find((el) => el.position === index); // персонаж который находится в покинутой ячейке
     
     this.gamePlay.setCursor('auto');
@@ -256,6 +281,8 @@ export default class GameController {
 
     this.toNull()
 
+    this.gameStop = false
+
     this.counterLevel = 0;
 
     this.gamePlay.drawUi('prairie');
@@ -275,8 +302,19 @@ export default class GameController {
   levelUp() {
     const charactersPlayer = this.arrayPositionedCharacter.filter( item => item.character.gamer === 'player');
     const charactersEnemy = this.arrayPositionedCharacter.filter( item => item.character.gamer === 'enemy');
+
     const themes = ['prairie', 'desert', 'arctic', 'mountain'];
- 
+
+    if((charactersEnemy.length === 0 || charactersPlayer.length === 0) && this.counterLevel === 3) {
+      this.gameStop = true
+      this.gamePlay.cells.forEach( item => {
+        if(item.matches('.selected-yellow')) {
+          item.classList.remove('selected-yellow')
+        }
+      })
+      return;
+    }
+
     // Меняем параметры
     if(charactersEnemy.length === 0 && charactersPlayer.length > 0) {
       // console.log('player win')
@@ -327,13 +365,15 @@ export default class GameController {
       this.computerLogic.init(this.arrayPositionedCharacter);
 
       // от уровня игры меняем поле
-      // if(this.counterLevel < 4) { // Если this.counterLevel превышает количество тем, поле не меняем
-        this.gamePlay.drawUi(themes[this.counterLevel]);
-      // }
+
+      // отрисовка поля
+      this.gamePlay.drawUi(themes[this.counterLevel]);
+
+        // Отрисовка персонажей
+      this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
 
       this.gameState.activeTheme = themes[this.counterLevel];
-        // Отрисовка
-      this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+        
 
         // Какой игрок сейчас ходит
       GameState.from({ gamer: 'player' });
@@ -598,6 +638,8 @@ export default class GameController {
   }
 
   loadGame() {
+    this.gameStop = false;
+
     const result = this.stateService.load();
 
     this.arrayPositionedCharacter = result.charactersAndPositions;
