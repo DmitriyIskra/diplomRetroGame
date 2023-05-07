@@ -137,13 +137,15 @@ export default class GameController {
     // Атака на противника
     // Если персонаж выбран и ячейка по которой был клик есть в списке для атаки и персонаж в ней враг
     if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForAttack].includes(index) && this.targetCharacter && GameState.queue.gamer === 'player') {
-      let damage = Math.max(this.activeCharacter.character.attack - this.targetCharacter.character.defence, this.activeCharacter.character.attack * 0.1); // выщитываем урон
+      let damage = Math.round(Math.max(this.activeCharacter.character.attack - this.targetCharacter.character.defence, this.activeCharacter.character.attack * 0.1)); // выщитываем урон
+      
       (async () => {
         await this.gamePlay.showDamage(index, damage); // функция для визуализации урона
 
         this.targetCharacter.character.health -= damage; // вычитаем из жизни атакуемого епрсонажа урон
         if(this.targetCharacter.character.health > 0) { // если жизни еще остались
               this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
+              this.targetCharacter = null; // обнуляем выбранный вражесский персонаж
               GameState.from({ gamer: 'enemy' });
               this.computerLogic.stepCharacter();
         } else if(this.targetCharacter.character.health <= 0) { // если жизни закончились
@@ -305,18 +307,22 @@ export default class GameController {
 
     const themes = ['prairie', 'desert', 'arctic', 'mountain'];
 
+    // Начало блокировки поля и всех действий при конце игры
     if((charactersEnemy.length === 0 || charactersPlayer.length === 0) && this.counterLevel === 3) {
       this.gameStop = true
       this.gamePlay.cells.forEach( item => {
         if(item.matches('.selected-yellow')) {
           item.classList.remove('selected-yellow')
         }
+
+        charactersEnemy.length === 0 ? this.gameState.playerBalls += 1 : this.enemyBalls += 1;
       })
       return;
     }
 
     // Меняем параметры
     if(charactersEnemy.length === 0 && charactersPlayer.length > 0) {
+      
       // console.log('player win')
       
       this.gameState.playerBalls += 1;
@@ -328,8 +334,9 @@ export default class GameController {
       // Количество игроков (рандом)
         // рандомное число для формирования колличества персонажей для каждой команды (не общее)
         // !!!!!!!!!!!!!!!!!! МИНИМАЛЬНОЕ КОЛИЧЕСТВО ДОЛЖНО БЫТЬ РАВНО ОСТАТКУ ПЕРСОНАЖЕЙ
-        // const randonAmountCharacters = Math.floor(Math.random() * ( this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length); 
-      const randonAmountCharacters = 2;
+      const randonAmountCharacters = Math.floor(Math.random() * ( this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length); 
+      console.log(randonAmountCharacters)
+        // const randonAmountCharacters = 2; // можно выбрать чтоб быстрей потестить
       const addCharacters = randonAmountCharacters - charactersPlayer.length;
       
         // Команды игроков
@@ -390,8 +397,8 @@ export default class GameController {
         // Количество игроков (рандом)
         // рандомное число для формирования колличества персонажей для каждой команды (не общее)
         // !!!!!!!!!!!!!!!!!! МИНИМАЛЬНОЕ КОЛИЧЕСТВО ДОЛЖНО БЫТЬ РАВНО ОСТАТКУ ПЕРСОНАЖЕЙ
-        // const randonAmountCharacters = Math.floor(Math.random() * ( this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length); 
-      const randonAmountCharacters = 2;
+      const randonAmountCharacters = Math.floor(Math.random() * ( this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length); 
+        // const randonAmountCharacters = 2; // можно выбрать чтоб быстрей потестить
       const addCharacters = randonAmountCharacters - charactersEnemy.length; // сколько персонажей добавить к выжившим
       
           // Команды игроков  
@@ -617,8 +624,8 @@ export default class GameController {
 
     // Количество игроков (рандом)
     // рандомное число для формирования колличества персонажей для каждой команды (не общее)
-    // const randonAmountCharacters = Math.floor(Math.random() * this.placesForPlayer.length + 1); 
-    const randonAmountCharacters = 2;
+    const randonAmountCharacters = Math.floor(Math.random() * this.placesForPlayer.length + 1); 
+    // const randonAmountCharacters = 2; // можно выбрать чтоб быстрей потестить
     // Команды игроков
     this.teamPlayer = generateTeam(playerClasses, 1, randonAmountCharacters);
     this.teamEnemy = generateTeam(enemyClasses, 1, randonAmountCharacters);

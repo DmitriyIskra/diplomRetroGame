@@ -15,15 +15,7 @@ export default class ComputerLogic {
     this.callbackLevelUp = LevelUp;
   }
 
-  // сформировать массив из персонажей компьютера один раз (метод должен сработать один раз в game controller в init)
 
-  // рандомно выбрать персонажа
-  // сформировать ячеки доступные для хода
-  // сформировать ячейки доступные для атаки
-  // Проверка есть ли в ячейке персонаж player
-  // если есть атаковать
-  // если нет походить redrowPosition
-  // поменять игрока
 
   init(arrayPositionsAndCharacters) { // Формируем массив с персонажами компьютера
     this.totalPositionsCherecters = arrayPositionsAndCharacters; // массив персонажей на поле
@@ -56,7 +48,7 @@ export default class ComputerLogic {
 
     const randomIndexforStep = Math.floor(Math.random() * ((this.cellsForSteps.size - 1) + 1)); // индекс для дальнейшего шага
     if(target) {
-      let damage = Math.max(randomCharacter.character.attack - target.character.defence, randomCharacter.character.attack * 0.1);
+      let damage = Math.round(Math.max(randomCharacter.character.attack - target.character.defence, randomCharacter.character.attack * 0.1));
       (async () => {
         await this.gamePlay.showDamage(target.position, damage); // отправить индекс атакуемого
         target.character.health -= damage;
@@ -69,7 +61,6 @@ export default class ComputerLogic {
           let indexCharacter = this.totalPositionsCherecters.findIndex( item => item.position === target.position);
           this.totalPositionsCherecters.splice(indexCharacter, 1);
           this.gamePlay.redrawPositions(this.totalPositionsCherecters);
-          this.callbackToNull();
           this.callbackLevelUp();
           GameState.from({ gamer: 'player' });
         }
