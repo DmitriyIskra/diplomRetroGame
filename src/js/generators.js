@@ -72,7 +72,7 @@ export function* characterGenerator(allowedTypes, maxLevel) {
     // Создание новых персонажей в добавок к сохранившим жизнь и победившим
     const randomlevel = Math.floor(Math.random() * maxLevel + 1);
     const randomIndexCharacter = Math.floor(Math.random() * allowedTypes.length);
-    console.log(randomlevel)
+
     if(randomlevel > 1) { // Если максимальный уровень передан больше 1
       // увеличиваем параметры по формулам, а в levelUp этого делать не нужно
       character = new allowedTypes[randomIndexCharacter](1); // Создаем

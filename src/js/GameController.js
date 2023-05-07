@@ -97,7 +97,10 @@ export default class GameController {
     
     
     // Перемещение персонажа  
-    if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForSteps].includes(index) && this.gamePlay.cells[index].children.length === 0) {
+    if ((this.lastIndex || this.lastIndex === 0)
+     && [...this.cellsForSteps].includes(index)
+     && this.gamePlay.cells[index].children.length === 0 
+     && GameState.queue.gamer === 'player') {
       
       this.gamePlay.deselectCell(this.lastIndex); /// ??????????????????? не срабатывает потому что следующая ячейка не пустая
       this.gamePlay.selectCell(index);            // после хода выделение исчезает
@@ -115,6 +118,7 @@ export default class GameController {
       this.computerLogic.stepCharacter();
 
       this.levelUp();
+      
     } else if((this.lastIndex || this.lastIndex === 0) // Персонаж выбран
     && this.gamePlay.cells[index].children.length === 0 // ячейка не содержит персонаж
     && ![...this.cellsForSteps].includes(index)) {
@@ -124,7 +128,7 @@ export default class GameController {
 
     // Атака на противника
     // Если персонаж выбран и ячейка по которой был клик есть в списке для атаки и персонаж в ней враг
-    if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForAttack].includes(index) && this.targetCharacter) {
+    if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForAttack].includes(index) && this.targetCharacter && GameState.queue.gamer === 'player') {
       let damage = Math.max(this.activeCharacter.character.attack - this.targetCharacter.character.defence, this.activeCharacter.character.attack * 0.1); // выщитываем урон
       (async () => {
         await this.gamePlay.showDamage(index, damage); // функция для визуализации урона
@@ -135,12 +139,26 @@ export default class GameController {
               GameState.from({ gamer: 'enemy' });
               this.computerLogic.stepCharacter();
         } else if(this.targetCharacter.character.health <= 0) { // если жизни закончились
-          let indexCharacter = this.arrayPositionedCharacter.findIndex( item => item.position === this.targetCharacter.position);
-          this.arrayPositionedCharacter.splice(indexCharacter, 1);
-          this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
-          GameState.from({ gamer: 'enemy' });
+          // В общем массиве находим индекс персонажа который был повержен
+          let indexCharacter = this.arrayPositionedCharacter.findIndex( item => item.position === this.targetCharacter.position ); 
+          this.arrayPositionedCharacter.splice(indexCharacter, 1); // удаляем поверженый персонаж из общего массива
+          this.gamePlay.redrawPositions(this.arrayPositionedCharacter); // перерисовываем
 
-          this.computerLogic.stepCharacter(); 
+          // Находим индекс персонажа в массиве персонажей компьютера
+          let indexCharacterComp = this.computerLogic.arrayCharacters.findIndex( item => item.position === this.targetCharacter.position ); 
+          console.log(indexCharacterComp)
+          if(indexCharacterComp || indexCharacterComp === 0) {
+            this.computerLogic.arrayCharacters.splice(indexCharacterComp, 1);
+          }
+
+          this.targetCharacter = null; // обнуляем выбранный вражесский персонаж
+
+          GameState.from({ gamer: 'enemy' }); // меняем gamer
+
+          if(this.computerLogic.arrayCharacters.length > 0) {
+            this.computerLogic.stepCharacter();
+          }
+           
           this.levelUp()
         }
       })()
@@ -238,6 +256,8 @@ export default class GameController {
 
     this.toNull()
 
+    this.counterLevel = 0;
+
     this.gamePlay.drawUi('prairie');
 
     this.generateTeamsAndPositions();
@@ -259,7 +279,7 @@ export default class GameController {
  
     // Меняем параметры
     if(charactersEnemy.length === 0 && charactersPlayer.length > 0) {
-      console.log('player win')
+      // console.log('player win')
       
       this.gameState.playerBalls += 1;
 
@@ -307,7 +327,10 @@ export default class GameController {
       this.computerLogic.init(this.arrayPositionedCharacter);
 
       // от уровня игры меняем поле
-      this.gamePlay.drawUi(themes[this.counterLevel]);
+      // if(this.counterLevel < 4) { // Если this.counterLevel превышает количество тем, поле не меняем
+        this.gamePlay.drawUi(themes[this.counterLevel]);
+      // }
+
       this.gameState.activeTheme = themes[this.counterLevel];
         // Отрисовка
       this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
@@ -316,7 +339,7 @@ export default class GameController {
       GameState.from({ gamer: 'player' });
   
     } else if(charactersEnemy.length > 0 && charactersPlayer.length === 0) {
-      console.log('enemy win')
+      // console.log('enemy win')
 
       this.gameState.enemyBalls += 1;
 
@@ -363,7 +386,10 @@ export default class GameController {
       this.computerLogic.init(this.arrayPositionedCharacter);
 
       // от уровня игры меняем поле
-      this.gamePlay.drawUi(themes[this.counterLevel]); 
+      // if(this.counterLevel < 4) { // Если this.counterLevel превышает количество тем, поле не меняем
+        this.gamePlay.drawUi(themes[this.counterLevel]);
+      // }
+
       this.gameState.activeTheme = themes[this.counterLevel];
         // Отрисовка
       this.gamePlay.redrawPositions(this.arrayPositionedCharacter);

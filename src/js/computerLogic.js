@@ -7,6 +7,7 @@ export default class ComputerLogic {
     this.gamePlay = gamePlay;
     this.arrayCharacters = [];
     this.totalPositionsCherecters = null;
+    this.arrayCharacters = null; // Персонажи компьютера
     this.cellsForSteps = new Set();
     this.cellsForAttack = new Set();
     this.attackedСharacter = null;
@@ -29,10 +30,10 @@ export default class ComputerLogic {
     this.arrayCharacters = arrayPositionsAndCharacters.filter((item) => item.character.gamer === 'enemy'); // Массив персонажей компьютера
   }
 
-  stepCharacter(callback) {
+  stepCharacter() {
     let randomCharacter = null;
     let target = null;
-    
+
     const randomIndex = Math.floor(Math.random() * ((this.arrayCharacters.length - 1) + 1));
     if (randomIndex || randomIndex === 0) {
       randomCharacter = this.arrayCharacters[randomIndex]; // выбираем персонаж для хода
@@ -44,7 +45,6 @@ export default class ComputerLogic {
 
     this.cellsForAttack.forEach( index => { // по которому мы можем проверить персонаж на враждебность  
       if(this.gamePlay.cells[index].children.length > 0) {
-        // target = this.arrayPositionsAndCharacters.find( item => item.position === index && item.character.gamer === 'player');
         this.totalPositionsCherecters.forEach(item => {
           if(item.position === index && item.character.gamer === 'player') {
             target = item;
@@ -188,3 +188,5 @@ export default class ComputerLogic {
     return [left, right];
   }
 }
+
+// debugger;
