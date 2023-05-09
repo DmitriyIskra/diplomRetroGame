@@ -1,7 +1,8 @@
-dist
-result
+
+
 doc
 .idea
+src
 
 # Logs
 logs
