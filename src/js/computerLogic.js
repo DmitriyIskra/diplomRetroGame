@@ -15,8 +15,6 @@ export default class ComputerLogic {
     this.callbackLevelUp = LevelUp;
   }
 
-
-
   init(arrayPositionsAndCharacters) { // Формируем массив с персонажами компьютера
     this.totalPositionsCherecters = arrayPositionsAndCharacters; // массив персонажей на поле
     this.arrayCharacters = arrayPositionsAndCharacters.filter((item) => item.character.gamer === 'enemy'); // Массив персонажей компьютера
@@ -35,44 +33,41 @@ export default class ComputerLogic {
       this.generateArrayForAttack(randomCharacter.position, randomCharacter.character.stepAttack, this.gamePlay.boardSize);
     }
 
-    this.cellsForAttack.forEach( index => { // по которому мы можем проверить персонаж на враждебность  
-      if(this.gamePlay.cells[index].children.length > 0) {
-        this.totalPositionsCherecters.forEach(item => {
-          if(item.position === index && item.character.gamer === 'player') {
+    this.cellsForAttack.forEach((index) => { // по которому мы можем проверить персонаж на враждебность
+      if (this.gamePlay.cells[index].children.length > 0) {
+        this.totalPositionsCherecters.forEach((item) => {
+          if (item.position === index && item.character.gamer === 'player') {
             target = item;
-            return;
           }
-        }) 
+        });
       }
-    })
+    });
 
     const randomIndexforStep = Math.floor(Math.random() * ((this.cellsForSteps.size - 1) + 1)); // индекс для дальнейшего шага
-    if(target) {
-      let damage = Math.round(Math.max(randomCharacter.character.attack - target.character.defence, randomCharacter.character.attack * 0.1));
+    if (target) {
+      const damage = Math.round(Math.max(randomCharacter.character.attack - target.character.defence, randomCharacter.character.attack * 0.1));
       (async () => {
         await this.gamePlay.showDamage(target.position, damage); // отправить индекс атакуемого
         target.character.health -= damage;
-        if(target.character.health > 0) {
+        if (target.character.health > 0) {
           this.gamePlay.redrawPositions(this.totalPositionsCherecters);
           GameState.from({ gamer: 'player' });
-        }
-        else if(target.character.health <= 0) {
+        } else if (target.character.health <= 0) {
           this.gamePlay.deselectCell(target.position);
-          let indexCharacter = this.totalPositionsCherecters.findIndex( item => item.position === target.position);
+          const indexCharacter = this.totalPositionsCherecters.findIndex((item) => item.position === target.position);
           this.totalPositionsCherecters.splice(indexCharacter, 1);
           this.gamePlay.redrawPositions(this.totalPositionsCherecters);
           this.callbackLevelUp();
           GameState.from({ gamer: 'player' });
         }
-      })()
-    }
-    else if (!target //  Если враг в допустимых ячейках не найден и ячейка для хода пустая
+      })();
+    } else if (!target //  Если враг в допустимых ячейках не найден и ячейка для хода пустая
         && this.gamePlay.cells[Array.from(this.cellsForSteps)[randomIndexforStep]].children.length === 0) { // из допустимых одну ячейку подставляем в cells
-          randomCharacter.position = Array.from(this.cellsForSteps)[randomIndexforStep] // меняем position
+      randomCharacter.position = Array.from(this.cellsForSteps)[randomIndexforStep]; // меняем position
 
-          this.gamePlay.redrawPositions(this.totalPositionsCherecters); // Перерисовываем
+      this.gamePlay.redrawPositions(this.totalPositionsCherecters); // Перерисовываем
 
-          GameState.from({ gamer: 'player' });
+      GameState.from({ gamer: 'player' });
     } else {
       this.stepCharacter(); // Если в ячейке доступной для хода не враг, но она занята своим, то перезапускаем для перерасчета
     }
