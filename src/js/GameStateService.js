@@ -1,4 +1,4 @@
-class GameStateService {
+export default class GameStateService {
   constructor(storage) {
     this.storage = storage;
   }
@@ -6,7 +6,7 @@ class GameStateService {
   save(state) {
     this.storage.setItem('state', JSON.stringify(state));
   }
- 
+
   load() {
     try {
       return JSON.parse(this.storage.getItem('state'));
@@ -14,8 +14,4 @@ class GameStateService {
       throw new Error('Invalid state');
     }
   }
-}
-
-module.exports = {
-  GameStateService
 }

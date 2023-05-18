@@ -35,7 +35,11 @@ export default class GameController {
   init() {
     this.gamePlay.drawUi('prairie');
 
-    this.computerLogic = new ComputerLogic(this.gamePlay, this.toNull.bind(this), this.levelUp.bind(this));
+    this.computerLogic = new ComputerLogic(
+      this.gamePlay,
+      this.toNull.bind(this),
+      this.levelUp.bind(this),
+    );
 
     this.gameState = new GameState();
     this.gameState.activeTheme = 'prairie';
@@ -53,7 +57,7 @@ export default class GameController {
     GameState.from({ gamer: 'player' });
 
     this.addListeners();
-    console.log(this.gamePlay.boardSize)
+    console.log(this.gamePlay.boardSize);
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
   }
@@ -93,10 +97,15 @@ export default class GameController {
       }
     }
 
-    // При старте игры когда пероснаж не выбран при клике на пустую ячейку ничего не должно происходить, не должно выдавать ошибок
-    if (!this.targetCharacter && !this.activeCharacter && this.gamePlay.cells[index].children.length === 0) {
+    // При старте игры когда пероснаж не выбран при клике на пустую ячейку
+    //  ничего не должно происходить, не должно выдавать ошибок
+    if (!this.targetCharacter
+       && !this.activeCharacter
+        && this.gamePlay.cells[index].children.length === 0) {
       return;
-    } if (this.targetCharacter && !this.activeCharacter && this.gamePlay.cells[index].children.length > 0) {
+    } if (this.targetCharacter
+       && !this.activeCharacter
+        && this.gamePlay.cells[index].children.length > 0) {
       GamePlay.showError('Вы не можете управлять персонажем противника');
     }
 
@@ -113,24 +122,38 @@ export default class GameController {
 
       this.cellsForSteps.clear();
       this.cellsForAttack.clear();
-      this.generateArrayForSteps(index, this.activeCharacter.character.step, this.gamePlay.boardSize); // пересобираем ячейки досступные для хода, после хода
-      this.generateArrayForAttack(index, this.activeCharacter.character.stepAttack, this.gamePlay.boardSize); // пересобираем ячейки досступные для атаки после хода
+      // пересобираем ячейки досступные для хода, после хода
+      this.generateArrayForSteps(
+        index,
+        this.activeCharacter.character.step,
+        this.gamePlay.boardSize,
+      );
+      // пересобираем ячейки досступные для атаки после хода
+      this.generateArrayForAttack(
+        index,
+        this.activeCharacter.character.stepAttack,
+        this.gamePlay.boardSize,
+      );
 
       GameState.from({ gamer: 'enemy' });
 
       this.computerLogic.stepCharacter();
 
-      this.levelUp();
-    } else if ((this.lastIndex || this.lastIndex === 0) // Персонаж выбран
+      this.levelUp(); // Персонаж выбран
+    } else if ((this.lastIndex || this.lastIndex === 0)
     && this.gamePlay.cells[index].children.length === 0 // ячейка не содержит персонаж
     && ![...this.cellsForSteps].includes(index)) {
       GamePlay.showError('Вы не можете идти сюда, это слишком далеко для одного хода');
     }
 
     // Атака на противника
-    // Если персонаж выбран и ячейка по которой был клик есть в списке для атаки и персонаж в ней враг
-    if ((this.lastIndex || this.lastIndex === 0) && [...this.cellsForAttack].includes(index) && this.targetCharacter && GameState.queue.gamer === 'player') {
-      const damage = Math.round(Math.max(this.activeCharacter.character.attack - this.targetCharacter.character.defence, this.activeCharacter.character.attack * 0.1)); // выщитываем урон
+    // Если персонаж выбран и ячейка по которой был клик есть
+    //  в списке для атаки и персонаж в ней враг
+    if ((this.lastIndex || this.lastIndex === 0) 
+    && [...this.cellsForAttack].includes(index) 
+    && this.targetCharacter && GameState.queue.gamer === 'player') {
+       // выщитываем урон
+      const damage = Math.round(Math.max(this.activeCharacter.character.attack - this.targetCharacter.character.defence, this.activeCharacter.character.attack * 0.1));
 
       (async () => {
         await this.gamePlay.showDamage(index, damage); // функция для визуализации урона
@@ -323,7 +346,7 @@ export default class GameController {
       // рандомное число для формирования колличества персонажей для каждой команды (не общее)
       // !!!!!!!!!!!!!!!!!! МИНИМАЛЬНОЕ КОЛИЧЕСТВО ДОЛЖНО БЫТЬ РАВНО ОСТАТКУ ПЕРСОНАЖЕЙ
       const randonAmountCharacters = Math.floor(Math.random() * (this.placesForPlayer.length - charactersPlayer.length + 1) + charactersPlayer.length);
-      console.log(randonAmountCharacters);
+      
       // const randonAmountCharacters = 2; // можно выбрать чтоб быстрей потестить
       const addCharacters = randonAmountCharacters - charactersPlayer.length;
 
@@ -612,7 +635,7 @@ export default class GameController {
     // Команды игроков
     this.teamPlayer = generateTeam(playerClasses, 1, randonAmountCharacters);
     this.teamEnemy = generateTeam(enemyClasses, 1, randonAmountCharacters);
-    
+
     // Уникальные позиции для расстановки
     const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
     const positionsForEnemy = this.placementPositionGenerator(this.placesForEnemy, randonAmountCharacters);

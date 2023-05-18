@@ -7,21 +7,19 @@
 //         this.charactersAndPositions = {bowman: 'bowman', position: '14'};
 //         this.gamer = 'player';
 //     }
-        
-    
-// }
-    function load(obj) {
-      try {
-        return JSON.parse(obj);
-      } catch (e) {
-        throw new Error('Invalid state');
-      }
-    }
 
-  
-  module.exports = {
-    load
+// }
+function load(obj) {
+  try {
+    return JSON.parse(obj);
+  } catch (e) {
+    throw new Error('Invalid state');
   }
+}
+
+module.exports = {
+  load,
+};
 
 // module.exports = {
 //     SaveGame

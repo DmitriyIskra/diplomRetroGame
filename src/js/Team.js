@@ -11,7 +11,7 @@
  * team.characters // [swordsman, bowman]
  * ```
  * */
-export default class Team { 
+export default class Team {
   constructor(characters) {
     this.characters = characters;
   }
