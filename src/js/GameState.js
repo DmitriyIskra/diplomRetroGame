@@ -5,8 +5,11 @@ export default class GameState {
     this.activeTheme = null;
     this.level = 0;
     this.charactersAndPositions = null;
+    this.teamPlayer = null;
+    this.teamEnemy = null;
   }
 
+  // Сохранение чей код
   static from(object) {
     this.queue = object;
     // TODO: create object

@@ -56,8 +56,11 @@ export default class GameController {
     // Какой игрок сейчас ходит
     GameState.from({ gamer: 'player' });
 
+    // Сохраняем уровень
+    this.gameState.level = 1;
+
     this.addListeners();
-    console.log(this.gamePlay.boardSize);
+    
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
   }
@@ -139,7 +142,7 @@ export default class GameController {
 
       this.computerLogic.stepCharacter();
 
-      this.levelUp(); // Персонаж выбран
+      this.levelUp();                                  // Персонаж выбран
     } else if ((this.lastIndex || this.lastIndex === 0)
     && this.gamePlay.cells[index].children.length === 0 // ячейка не содержит персонаж
     && ![...this.cellsForSteps].includes(index)) {
@@ -311,8 +314,13 @@ export default class GameController {
 
     // Какой игрок сейчас ходит
     GameState.from({ gamer: 'player' });
+
+    // Присваиваем первый уровень
+    this.gameState.level = 1;
   }
 
+
+  // Поднимаем уровень и выполняем сопутствующие действия
   levelUp() {
     const charactersPlayer = this.arrayPositionedCharacter.filter((item) => item.character.gamer === 'player');
     const charactersEnemy = this.arrayPositionedCharacter.filter((item) => item.character.gamer === 'enemy');
@@ -351,20 +359,20 @@ export default class GameController {
       const addCharacters = randonAmountCharacters - charactersPlayer.length;
 
       // Команды игроков
-      this.teamPlayer = null;
+      this.gameState.teamPlayer = null;
       charactersPlayer.push({ classes: playerClasses }); // добавляем массив классов
       if (addCharacters > 0) { // Если нужно добавить персонажей, формируем их
-        this.teamPlayer = generateTeam(playerClasses, this.counterLevel, addCharacters); // персонажи новые поэтому 1й уровень
+        this.gameState.teamPlayer = generateTeam(playerClasses, this.counterLevel, addCharacters); // персонажи новые поэтому 1й уровень
         const result = generateTeam(charactersPlayer, this.counterLevel, charactersPlayer.length - 1); // Формируем персонажи те чтовыжили
 
-        result.characters.forEach((item) => this.teamPlayer.characters.push(item)); // Пушим в teamPlayer
-        // this.teamPlayer.characters.push()
+        result.characters.forEach((item) => this.gameState.teamPlayer.characters.push(item)); // Пушим в teamPlayer
+        // this.gameState.teamPlayer.characters.push()
       } else {
-        this.teamPlayer = generateTeam(charactersPlayer, this.counterLevel, charactersPlayer.length - 1); // Формируем персонажи те чтовыжили
+        this.gameState.teamPlayer = generateTeam(charactersPlayer, this.counterLevel, charactersPlayer.length - 1); // Формируем персонажи те чтовыжили
       }
 
-      this.teamEnemy = null;
-      this.teamEnemy = generateTeam(enemyClasses, this.counterLevel + 1, randonAmountCharacters); // как в рандом, так и формируем
+      this.gameState.teamEnemy = null;
+      this.gameState.teamEnemy = generateTeam(enemyClasses, this.counterLevel + 1, randonAmountCharacters); // как в рандом, так и формируем
 
       // Уникальные позиции для расстановки
       const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
@@ -372,7 +380,7 @@ export default class GameController {
 
       // Массив для отрисовки
       this.arrayPositionedCharacter = null;
-      this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
+      this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.gameState.teamPlayer, this.gameState.teamEnemy, positionsForPlayer, positionsForEnemy);
 
       // Обнуляем параметры логики компьютера
       this.computerLogic.cellsForSteps.clear();
@@ -390,7 +398,11 @@ export default class GameController {
       // Отрисовка персонажей
       this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
 
+      // Сохраняем текущую тему
       this.gameState.activeTheme = themes[this.counterLevel];
+
+      // Сохраняем новый уровень
+      this.gameState.level = this.gameState.level + 1;
 
       // Какой игрок сейчас ходит
       GameState.from({ gamer: 'player' });
@@ -409,19 +421,19 @@ export default class GameController {
       const addCharacters = randonAmountCharacters - charactersEnemy.length; // сколько персонажей добавить к выжившим
 
       // Команды игроков
-      this.teamEnemy = null;
+      this.gameState.teamEnemy = null;
       charactersEnemy.push({ classes: enemyClasses }); // добавляем массив классов
       if (addCharacters > 0) { // Если нужно добавить персонажей, формируем их
-        this.teamEnemy = generateTeam(enemyClasses, this.counterLevel, addCharacters); // персонажи новые поэтому 1й уровень
+        this.gameState.teamEnemy = generateTeam(enemyClasses, this.counterLevel, addCharacters); // персонажи новые поэтому 1й уровень
         const result = generateTeam(charactersEnemy, this.counterLevel, charactersEnemy.length - 1); // Формируем персонажи те чтовыжили
 
-        result.characters.forEach((item) => this.teamEnemy.characters.push(item)); // Пушим в teamPlayer
+        result.characters.forEach((item) => this.gameState.teamEnemy.characters.push(item)); // Пушим в teamPlayer
       } else {
-        this.teamEnemy = generateTeam(charactersEnemy, this.counterLevel, charactersEnemy.length - 1); // Формируем персонажи те чтовыжили
+        this.gameState.teamEnemy = generateTeam(charactersEnemy, this.counterLevel, charactersEnemy.length - 1); // Формируем персонажи те чтовыжили
       }
 
-      this.teamPlayer = null;
-      this.teamPlayer = generateTeam(playerClasses, this.counterLevel + 1, randonAmountCharacters); // как в рандом, так и формируем
+      this.gameState.teamPlayer = null;
+      this.gameState.teamPlayer = generateTeam(playerClasses, this.counterLevel + 1, randonAmountCharacters); // как в рандом, так и формируем
 
       // Уникальные позиции для расстановки
       const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
@@ -429,7 +441,7 @@ export default class GameController {
 
       // Массив для отрисовки
       this.arrayPositionedCharacter = null;
-      this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
+      this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.gameState.teamPlayer, this.gameState.teamEnemy, positionsForPlayer, positionsForEnemy);
 
       // Обнуляем параметры логики компьютера
       this.computerLogic.cellsForSteps.clear();
@@ -445,6 +457,10 @@ export default class GameController {
       // }
 
       this.gameState.activeTheme = themes[this.counterLevel];
+
+      // Сохраняем новый уровень
+      this.gameState.level = this.gameState.level + 1;
+
       // Отрисовка
       this.gamePlay.redrawPositions(this.arrayPositionedCharacter);
 
@@ -453,7 +469,8 @@ export default class GameController {
     }
   }
 
-  toNull() { // Обнуляет все параметры при сметри персонажа player
+  // Обнуляет все параметры при смерти персонажа player
+  toNull() { 
     this.lastIndex = null;
     this.cellsForSteps.clear();
     this.cellsForAttack.clear();
@@ -563,8 +580,10 @@ export default class GameController {
     return [left, right];
   }
 
-  validateCharacter(character) { // Проверяем своего ли персонажа выбрал игрок
-    if (GameState.queue.gamer === 'player') { // игрок может выбрать персонажа только если сейчас его ход
+  // Проверяем своего ли персонажа выбрал игрок
+  validateCharacter(character) { 
+    // игрок может выбрать персонажа только если сейчас его ход
+    if (GameState.queue.gamer === 'player') { 
       return playerClasses.some((item) => new item().type === character.type);
     }
 
@@ -573,7 +592,8 @@ export default class GameController {
     // }
   }
 
-  genArrayPositionedCharacter(teamPlayer, teamEnemy, positionsForPlayer, positionsForEnemy) { // Создаем массив персонажей и позиций для this.gamePlay.redrawPositions(tu)
+  // Создаем массив персонажей и позиций для this.gamePlay.redrawPositions(tu)
+  genArrayPositionedCharacter(teamPlayer, teamEnemy, positionsForPlayer, positionsForEnemy) { 
     const arr = [];
 
     for (let i = 0; i <= positionsForPlayer.length - 1; i += 1) {
@@ -587,7 +607,8 @@ export default class GameController {
     return arr;
   }
 
-  placementPositionGenerator(places, amountCharacters) { // рандомные позиции для расстановки, в зависимости от количества персонажей
+  // рандомные позиции для расстановки, в зависимости от количества персонажей
+  placementPositionGenerator(places, amountCharacters) { 
     const positions = new Set();
 
     for (let i = 0; positions.size <= amountCharacters - 1; i += 1) {
@@ -630,18 +651,18 @@ export default class GameController {
 
     // Количество игроков (рандом)
     // рандомное число для формирования колличества персонажей для каждой команды (не общее)
-    const randonAmountCharacters = Math.floor(Math.random() * this.placesForPlayer.length + 1);
-    // const randonAmountCharacters = 2; // можно выбрать чтоб быстрей потестить
+    // const randonAmountCharacters = Math.floor(Math.random() * this.placesForPlayer.length + 1);
+    const randonAmountCharacters = 2; // можно выбрать чтоб быстрей потестить
     // Команды игроков
-    this.teamPlayer = generateTeam(playerClasses, 1, randonAmountCharacters);
-    this.teamEnemy = generateTeam(enemyClasses, 1, randonAmountCharacters);
+    this.gameState.teamPlayer = generateTeam(playerClasses, 1, randonAmountCharacters);
+    this.gameState.teamEnemy = generateTeam(enemyClasses, 1, randonAmountCharacters);
 
     // Уникальные позиции для расстановки
     const positionsForPlayer = this.placementPositionGenerator(this.placesForPlayer, randonAmountCharacters);
     const positionsForEnemy = this.placementPositionGenerator(this.placesForEnemy, randonAmountCharacters);
 
     // Массив для отрисовки
-    this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.teamPlayer, this.teamEnemy, positionsForPlayer, positionsForEnemy);
+    this.arrayPositionedCharacter = this.genArrayPositionedCharacter(this.gameState.teamPlayer, this.gameState.teamEnemy, positionsForPlayer, positionsForEnemy);
   }
 
   saveGame() {
